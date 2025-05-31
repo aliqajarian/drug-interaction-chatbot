@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drug Interaction Chatbot</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f7f7f7; margin: 0; padding: 0; }
+        .container { max-width: 500px; margin: 40px auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #ccc; padding: 24px; }
+        h2 { text-align: center; }
+        #chatbox { height: 320px; overflow-y: auto; border: 1px solid #ddd; border-radius: 6px; padding: 12px; background: #fafafa; margin-bottom: 16px; }
+        .msg { margin: 8px 0; }
+        .user { color: #007bff; }
+        .bot { color: #333; }
+        #inputArea { display: flex; }
+        #userInput { flex: 1; padding: 8px; border-radius: 4px; border: 1px solid #ccc; }
+        #sendBtn { padding: 8px 16px; margin-left: 8px; border-radius: 4px; border: none; background: #007bff; color: #fff; cursor: pointer; }
+        #sendBtn:disabled { background: #aaa; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Drug Interaction Chatbot</h2>
+        <div id="chatbox"></div>
+        <div id="inputArea">
+            <input type="text" id="userInput" placeholder="Enter two drug names (فارسی یا English)... then wait for seconds">
+            <button id="sendBtn">Send</button>
+        </div>
+        <p style="font-size:12px;color:#888;margin-top:10px;">Powered by AI (Gemini, DeepSeek, Qwen, GPT, etc.)</p>
+    </div>
+    <script>
+        const chatbox = document.getElementById('chatbox');
+        const userInput = document.getElementById('userInput');
+        const sendBtn = document.getElementById('sendBtn');
+
+        function appendMessage(text, sender) {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'msg ' + sender;
+            msgDiv.innerText = text;
+            chatbox.appendChild(msgDiv);
+            chatbox.scrollTop = chatbox.scrollHeight;
+        }
+
+        async function callLLMAPI(prompt) {
+            const apiKey = 'YOUR-API-KEY'; // <-- Replace with your API key
+            const apiUrl = 'https://openrouter.ai/api/v1/chat/completions';
+
+            const requestBody = {
+                models: [
+                    "deepseek/deepseek-r1-0528",
+                    "deepseek/deepseek-chat-v3-0324",
+                    "qwen/qwen3-235b-a22b"
+                    
+                ],
+                messages: [
+                    {
+                        role: 'user',
+                        content: 'You are a medical assistant. If the user enters two drug names (in Persian or English), briefly check and explain if there is any known interaction between them answer in persian and have a breief and complete answer and dont try to say ask a doctor or etc. If you do not know, say so. Check for interactions between ' + prompt
+                    }
+                ]
+            };
+
+            try {
+                console.log('Sending request:', JSON.stringify(requestBody, null, 2));
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${apiKey}`,
+                        'HTTP-Referer': 'http://localhost:8000', // Replace with your site URL
+                        'X-Title': 'Drug Interaction Chatbot' // Replace with your site title
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('API Error Response Text:', errorText);
+                    throw new Error(`HTTP error! Status: ${response.status}. Details: ${errorText}`);
+                }
+
+                const data = await response.json();
+                console.log('API Response Data:', data);
+                // Assuming the first model's response is desired, or you might need to iterate/check 'model' in response
+                return data.choices && data.choices[0] && data.choices[0].message.content ? data.choices[0].message.content : 'No response or unexpected format.';
+            } catch (e) {
+                console.error('Fetch/LLM API Error:', e);
+                return 'Sorry, there was a problem contacting the LLM API. Please check your API endpoint, key, and the browser console for more details.';
+            }
+        }
+
+        sendBtn.onclick = async () => {
+            const text = userInput.value.trim();
+            if (!text) return;
+            appendMessage(text, 'user');
+            userInput.value = '';
+            sendBtn.disabled = true;
+            // The user's input 'text' will be the two drug names
+            const reply = await callLLMAPI(text); 
+            appendMessage(reply, 'bot');
+            sendBtn.disabled = false;
+        };
+
+        userInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') sendBtn.click();
+        });
+    </script>
+
+</body>
+</html>
